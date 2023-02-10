@@ -15,17 +15,17 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section(header: Text("Player 1")) {
-                TextInputItem(title: "Name", defaultText: "Player 1 Name", text: $model.model.player1.name)
-                ColorPicker(title: "Color", color: $model.model.player1.color)
-                TextInputItem(title: "Icon", defaultText: "Player 1 Icon", text: $model.model.player1.icon)
+                TextInputItem(title: "Name", defaultText: "Player 1 Name", text: $model.mainPlayer.name)
+                ColorPicker(title: "Color", color: $model.mainPlayer.color)
+                TextInputItem(title: "Icon", defaultText: "Player 1 Icon", text: $model.mainPlayer.icon)
             }
-           if !model.isMultipeerOn {
+            if !model.isMultipeerOn {
                 Section(header: Text("Player 2")) {
-                    TextInputItem(title: "Name", defaultText: "Player 2 Name", text: $model.model.player2.name)
-                    ColorPicker(title: "Color", color: $model.model.player2.color)
-                    TextInputItem(title: "Icon", defaultText: "Player 2 Icon", text: $model.model.player2.icon)
+                    TextInputItem(title: "Name", defaultText: "Player 2 Name", text: model.guestPlayer!.bindingName())
+                    ColorPicker(title: "Color", color: model.guestPlayer!.bindingColor())
+                    TextInputItem(title: "Icon", defaultText: "Player 2 Icon", text: model.guestPlayer!.bindingIcon())
                 }
-           }
+            }
             
             Section(header: Text("Available Players")) {
                 Toggle("Multipeer", isOn: $model.isMultipeerOn)
@@ -84,7 +84,7 @@ struct SettingsView: View {
             }
         }
     }
-
+    
     struct ColorPicker: View {
         private let colors = ["Red", "Yellow", "Green", "Blue", "Pink", "Purple", "Orange"]
         let title: String
@@ -98,7 +98,7 @@ struct SettingsView: View {
             }
         }
     }
-
+    
     struct PeerView: View {
         var peer: MCConnector.MCCPeer
         
@@ -118,18 +118,17 @@ struct SettingsView: View {
     func invitationAlert() -> Alert {
         let peer = model.firstPendingInvitation
         
-        return
-            Alert(
-                title: Text("Invitation received."),
-                message: Text("\(peer!.name) would like to play with you."),
-                primaryButton: .default(Text("Decline")) {
-                    model.invitationResponse(false, forPeer: peer!)
-                },
-                secondaryButton: .default(Text("Accept")) {
-                    model.invitationResponse(true, forPeer: peer!)
-                }
-            )
-        }
+        return Alert(
+            title: Text("Invitation received."),
+            message: Text("\(peer!.name) would like to play with you."),
+            primaryButton: .default(Text("Decline")) {
+                model.respondInvitation(false, forPeer: peer!)
+            },
+            secondaryButton: .default(Text("Accept")) {
+                model.respondInvitation(true, forPeer: peer!)
+            }
+        )
+    }
 }
 
 struct SettingsView_Previews: PreviewProvider {

@@ -9,7 +9,7 @@ import Foundation
 import MultipeerConnectivity
 
 class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdvertiserDelegate, MCSessionDelegate {
-    typealias BoardItem = TicTacToeGame<Player>.BoardItem
+    typealias BoardPosition = GameViewModel.BoardPosition
     
     private let serviceType = "atk-ttt-srvc"
     private var peerID: MCPeerID
@@ -18,18 +18,20 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     private var browser: MCNearbyServiceBrowser
     private var availablePeer: [MCPeerID] = []
     private var pendingInvitation: [(peer:MCPeerID, invitationHandler:(Bool, MCSession?) -> Void)] = []
+    private var delegate : MCConnectorDelegate
+    
     var isConnected = false
     
-    var delegate : MCConnectorDelegate?
-    
-    init(withPublicName publicName: String) {
+    init(withPublicName publicName: String, andDelegate delegate: MCConnectorDelegate) {
         self.peerID = MCPeerID(displayName: publicName)
         self.advertiser = MCNearbyServiceAdvertiser(peer: peerID, discoveryInfo: nil, serviceType: serviceType)
         self.browser = MCNearbyServiceBrowser(peer: peerID, serviceType: serviceType)
+        self.delegate = delegate
         super.init()
         
         advertiser.delegate = self
         browser.delegate = self
+        
     }
     
     func startAdvertising() {
@@ -63,7 +65,7 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
         }
     }
     
-    func send(key: ConnData.ConnDataKey, withData data: Data?) {
+    func send(_ key: ConnData.ConnDataKey, withData data: Data?) {
         if let session = session {
             if !session.connectedPeers.isEmpty {
                 do {
@@ -79,12 +81,9 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
         if session == nil {
-            if let delegate = delegate {
-                DispatchQueue.main.async {
-                    delegate.didRecieveInvitationFrom(MCCPeer(id: peerID.hash, name: peerID.displayName))
-                }
+            DispatchQueue.main.async {
+                self.delegate.didRecieveInvitationFrom(MCCPeer(id: peerID.hash, name: peerID.displayName))
             }
-            
             pendingInvitation.append((peerID, invitationHandler))
         } else {
             invitationHandler(false, nil)
@@ -95,63 +94,56 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
         availablePeer.append(peerID)
-        if let delegate = delegate {
-            DispatchQueue.main.async {
-                delegate.didFoundPeer(MCCPeer(id: peerID.hash, name: peerID.displayName))
-            }
+        DispatchQueue.main.async {
+            self.delegate.didFoundPeer(MCCPeer(id: peerID.hash, name: peerID.displayName))
         }
     }
     
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
         availablePeer.removeAll{$0==peerID}
-        if let delegate = delegate {
-            DispatchQueue.main.async {
-                delegate.didLostPeer(MCCPeer(id: peerID.hash, name: peerID.displayName))
-            }
+        DispatchQueue.main.async {
+            self.delegate.didLostPeer(MCCPeer(id: peerID.hash, name: peerID.displayName))
         }
     }
     
     //MARK: -MCSessionDelegate
     
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
-        if let delegate = delegate {
-            DispatchQueue.main.async {
-                switch state {
-                case .notConnected:
-                    self.session = nil
-                    self.isConnected = false
-                    delegate.didDisconnect()
-                case .connected:
-                    self.stopAdvertising()
-                    delegate.didConnectTo(MCCPeer(id: peerID.hash, name: peerID.displayName))
-                    self.isConnected = true
-                default:
-                    print("Session State:\(state) not handled")
-                }
+        DispatchQueue.main.async {
+            switch state {
+            case .notConnected:
+                self.session = nil
+                self.isConnected = false
+                self.delegate.didDisconnect()
+            case .connected:
+                self.stopAdvertising()
+                self.delegate.didConnectTo(MCCPeer(id: peerID.hash, name: peerID.displayName))
+                self.isConnected = true
+            case .connecting:
+                print("TODO: Handle connecting state")
+            default:
+                print("Session State:\(state) not handled")
             }
         }
     }
     
     func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
-        if let delegate = delegate {
-            DispatchQueue.main.async {
-                do {
-                    let connData = try ConnData(fromData: data)
-                    
-                    switch connData.key {
-                    case .player:
-                        delegate.didRecievePlayer(try Player(fromData: connData.data!))
-                    case .move:
-                        delegate.didRecieveMove(try BoardItem(fromData: connData.data!))
-                    case .restart:
-                        delegate.didReceiveStartANewGame()
-                    case .message:
-                        print("Message received: \(try String(fromData: connData.data!))")
-                    }
-                    
-                } catch {
-                    print("Error receiving message...")
+        DispatchQueue.main.async {
+            do {
+                let connData = try ConnData(fromData: data)
+                
+                switch connData.key {
+                case .player:
+                    self.delegate.didRecievePlayer(try Player(fromData: connData.data!))
+                case .move:
+                    self.delegate.didRecieveMove(try BoardPosition(fromData: connData.data!))
+                case .restart:
+                    self.delegate.didReceiveRestart()
+                case .message:
+                    print("Message received: \(try String(fromData: connData.data!))")
                 }
+            } catch {
+                print("Error receiving message...")
             }
         }
     }
@@ -200,13 +192,17 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     struct MCCPeer: Equatable, Identifiable {
         let id : Int
         let name : String
-        var state: MSSPeerState = .idle
+        var state: MCCPeerState = .idle
         
-        enum MSSPeerState {
+        enum MCCPeerState {
             case idle
             case waitingResponse
             case connecting
             case connected
+        }
+        
+        static func == (lhs: MCCPeer, rhs: MCCPeer) -> Bool {
+            return lhs.id == rhs.id
         }
     }
 }
@@ -214,6 +210,8 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
 //MARK: -MCConnectorDelegate
 
 protocol MCConnectorDelegate {
+    typealias BoardPosition = MCConnector.BoardPosition
+    
     func didFoundPeer(_ peer: MCConnector.MCCPeer)
     
     func didLostPeer(_ peer: MCConnector.MCCPeer)
@@ -226,7 +224,7 @@ protocol MCConnectorDelegate {
     
     func didRecievePlayer(_ player: Player)
     
-    func didRecieveMove(_ boardItem: TicTacToeGame<Player>.BoardItem)
+    func didRecieveMove(_ position: BoardPosition)
     
-    func didReceiveStartANewGame()
+    func didReceiveRestart()
 }

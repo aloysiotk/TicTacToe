@@ -14,6 +14,7 @@
 		753B3AA929819A1900EDDEFD /* GameBoardGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753B3AA829819A1900EDDEFD /* GameBoardGrid.swift */; };
 		753B3AAB2983227400EDDEFD /* Applause.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 753B3AAA2983227400EDDEFD /* Applause.mp3 */; };
 		756AACBE2992F1A5008A24B8 /* Chalkduster.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 756AACBD2992F1A5008A24B8 /* Chalkduster.ttf */; };
+		756AACC02995730F008A24B8 /* Player.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756AACBF2995730F008A24B8 /* Player.swift */; };
 		75C021BF29843E6A0034FB26 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C021BE29843E6A0034FB26 /* SettingsView.swift */; };
 		75C021C1298C9D730034FB26 /* MCConnector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C021C0298C9D730034FB26 /* MCConnector.swift */; };
 		75C021C4298DC0EF0034FB26 /* GameViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C021C3298DC0EF0034FB26 /* GameViewModel.swift */; };
@@ -31,6 +32,7 @@
 		753B3AA829819A1900EDDEFD /* GameBoardGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameBoardGrid.swift; sourceTree = "<group>"; };
 		753B3AAA2983227400EDDEFD /* Applause.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = Applause.mp3; sourceTree = "<group>"; };
 		756AACBD2992F1A5008A24B8 /* Chalkduster.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Chalkduster.ttf; sourceTree = "<group>"; };
+		756AACBF2995730F008A24B8 /* Player.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Player.swift; sourceTree = "<group>"; };
 		75C021BE29843E6A0034FB26 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		75C021C0298C9D730034FB26 /* MCConnector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCConnector.swift; sourceTree = "<group>"; };
 		75C021C2298CB3BA0034FB26 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -78,6 +80,7 @@
 				75C021BE29843E6A0034FB26 /* SettingsView.swift */,
 				753B3AA829819A1900EDDEFD /* GameBoardGrid.swift */,
 				753B3AA62980500F00EDDEFD /* TicTacToeGame.swift */,
+				756AACBF2995730F008A24B8 /* Player.swift */,
 				75C021C3298DC0EF0034FB26 /* GameViewModel.swift */,
 				75C021C0298C9D730034FB26 /* MCConnector.swift */,
 				7500242F298DF44700852C91 /* DataHandler.swift */,
@@ -171,6 +174,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				756AACC02995730F008A24B8 /* Player.swift in Sources */,
 				75C021BF29843E6A0034FB26 /* SettingsView.swift in Sources */,
 				753B3AA929819A1900EDDEFD /* GameBoardGrid.swift in Sources */,
 				75C021C4298DC0EF0034FB26 /* GameViewModel.swift in Sources */,

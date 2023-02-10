@@ -10,79 +10,86 @@ import UIKit
 import SwiftUI
 
 class GameViewModel: ObservableObject, MCConnectorDelegate {
-    typealias BoardItem = TicTacToeGame<Player>.BoardItem
+    typealias Board = TicTacToeGame.Board
+    typealias BoardPosition = TicTacToeGame.BoardPosition
     typealias MCCPeer = MCConnector.MCCPeer
     
-    @Published var model: TicTacToeGame<Player> = TicTacToeGame(columns: 3, player1: LocalPlayer(id: 1), player2: LocalPlayer(id: 2))
+    @Published private(set) var game: TicTacToeGame?
+    private var connection: MCConnector?
+    private var startRemoteGame: ((Player) -> TicTacToeGame)?
+    @Published var mainPlayer: LocalPlayer = LocalPlayer(id: 1)
+    @Published var guestPlayer: Player?
+    
+    @Published var guestPlayerName: String?
+    
     @Published var availablePeers: [MCCPeer] = []
     @Published var isMultipeerOn = false {didSet{toogledMultipeer()}}
     @Published var isShowingInvitation = false
     @Published var isShowingAlert = false
+    @Published var isShowingSettings = false
     
     var isConnecting: Bool {!availablePeers.filter({$0.state == .connecting}).isEmpty}
-    
-    @Published var isMyTurn = true
-    
-    private var connection: MCConnector?
-    var cards: [BoardItem] {model.board}
-    var playerInTurn: Player {model.playerInTurn}
-    var columns: Int {model.columns}
-    var gameFinished: Bool {model.gameFinished}
-    var hasWinner: Bool {model.hasWinner}
+    var boardItens: [Board.BoardItem] {game?.board.itens ?? []}
+    var columns: Int {game?.board.columns ?? 3}
+    var playerInTurnName: String {game?.playerInTurn.name ?? "No player connected..."}
+    var playerInTurnColor: String {game?.playerInTurn.color ?? "ColorBlue"}
+    var isGameFinished: Bool {game?.isGameFinished ?? false}
+    var hasWinner: Bool {game?.hasWinner ?? false}
+    //TODO: Timestamp on MCCPeer to sort pending invitations
     var firstPendingInvitation: MCCPeer? {availablePeers.first(where:{$0.state == .waitingResponse})}
     
     init() {
         isMultipeerOn = DataHandler.retrieve(forKey: "IsMultipeerOn") ?? false
-        //Change logic to only start advertising when on settings view or receive invitation here
-        connection?.stopAdvertising()
     }
     
     func toogledMultipeer() {
         DataHandler.store(data: isMultipeerOn, forKey: "IsMultipeerOn")
-        model = TicTacToeGame(columns: 3, player1: LocalPlayer(id: 1), player2: LocalPlayer(id: 2))
         
         if isMultipeerOn {
-            if connection == nil {
-                availablePeers = []
-                connection = MCConnector(withPublicName: model.player1.name)
-                connection?.delegate = self
-                connection?.startAdvertising()
-            }
+            game = nil
+            connection = MCConnector(withPublicName: mainPlayer.name, andDelegate: self)
+            startAdvertising()
         } else {
-            connection?.stopAdvertising()
-            availablePeers = []
+            stopAdvertising()
             connection = nil
-            isMyTurn = true
+            guestPlayer = LocalPlayer(id: 2)
+            game = TicTacToeGame(player1: mainPlayer, player2: guestPlayer!)
         }
     }
     
-    func startANewGame() {
-        if let connection = connection {
-            connection.send(key: .restart, withData: nil)
-            connection.send(key: .message, withData: "Teste... 1, 2, 3... Testando... 1,2,3...".encode())
+    func restart() {
+        if game != nil {
+            game!.restart()
+            
+            if let connection = connection, connection.isConnected  {
+                connection.send(.restart, withData: nil)
+            }
         }
-        model.startANewGame()
     }
     
-    func choose(boardItem: BoardItem) -> Bool {
+    func choose(position: BoardPosition) -> Bool {
         if let connection = connection {
-            if connection.isConnected {
-                if isMyTurn {
-                        isMyTurn = false
-                        model.choose(boardItem: boardItem)
-                        sendMove(item:boardItem)
-                        return true
+            if connection.isConnected  {
+                if connection.isConnected {
+                    if game != nil {
+                        connection.send(.move, withData: position.encode())
+                        return game!.choose(position: position, forPlayer:mainPlayer)
+                    }
                 }
             } else {
                 isShowingAlert = true
             }
             return false
         } else {
-            return model.choose(boardItem: boardItem)
+            if game != nil {
+                return game!.choose(position: position, forPlayer: game!.playerInTurn)
+            }
         }
+        return false
     }
     
     func startAdvertising() {
+        //availablePeers = []
         connection?.startAdvertising()
     }
     
@@ -92,36 +99,36 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
     }
     
     func invitePeer(_ peer: MCCPeer) {
-        if let peerIndex = availablePeers.firstIndex(where:{$0.id == peer.id}) {
-            availablePeers[peerIndex].state = .connecting
-        }
-        
+        availablePeers.updateState(.connecting, forPeer: peer)
         connection?.invitePeer(peer)
+        startRemoteGame = newGameAsPlayer1(player2:)
     }
     
-    func invitationResponse(_ response: Bool, forPeer peer: MCCPeer) {
-        if let peerIndex = availablePeers.firstIndex(where:{$0.id == peer.id}) {
-            availablePeers[peerIndex].state = .connecting
-        }
+    func respondInvitation(_ response: Bool, forPeer peer: MCCPeer) {
+        // TODO: Allow receive invitation on GameView
         
-        connection?.respondInvitationFor(peer, withValue: response)
-        
-        if response {
-            for i in 0..<(availablePeers.count) {
-                if availablePeers[i].state == .waitingResponse {
-                    availablePeers[i].state = .idle
-                }
+        if response == true {
+            let pendingPeers = availablePeers.filter{$0.state == .waitingResponse}
+            for pendingPeer in pendingPeers {
+                availablePeers.updateState(peer == pendingPeer ? .connecting : .idle, forPeer: pendingPeer)
+                connection?.respondInvitationFor(pendingPeer, withValue: peer == pendingPeer)
+                startRemoteGame = newGameAsPlayer2(player1:)
             }
-        } else if firstPendingInvitation != nil {
-            isShowingInvitation = true
+        } else {
+            availablePeers.updateState(.idle, forPeer: peer)
+
+            if firstPendingInvitation != nil {
+                isShowingInvitation = true
+            }
         }
-        
-        isMyTurn = false
-        model.isGuest = true
     }
     
-    func sendMove(item: BoardItem) {
-        connection?.send(key: .move, withData: item.encode())
+    private func newGameAsPlayer1(player2: Player) -> TicTacToeGame {
+        return TicTacToeGame(player1: mainPlayer, player2: player2)
+    }
+    
+    private func newGameAsPlayer2(player1: Player) -> TicTacToeGame {
+        return TicTacToeGame(player1: player1, player2: mainPlayer)
     }
     
     //MARK: - MCConnectorDelegate
@@ -145,23 +152,25 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
         if let peerIndex = availablePeers.firstIndex(where:{$0.id == peer.id}) {
             availablePeers[peerIndex].state = .connected
         }
-        connection?.send(key: .player, withData: model.player1.cloneChangingId(id:2).encode())
+        connection?.send(.player, withData: mainPlayer.cloneChangingId(id:2).encode())
+        
+        isShowingSettings = false
     }
     
     func didDisconnect() {
         print("GameViewModel didDisconnect not handled")
     }
     
-    func didReceiveStartANewGame() {
-        model.startANewGame()
+    func didReceiveRestart() {
+        game?.restart()
     }
     
     func didRecievePlayer(_ player: Player) {
-        model.player2 = player
+        guestPlayer = player
+        game = startRemoteGame!(player)
     }
     
-    func didRecieveMove(_ boardItem: TicTacToeGame<Player>.BoardItem) {
-        model.choose(boardItem: boardItem)
-        isMyTurn = true
+    func didRecieveMove(_ position: BoardPosition) {
+        game?.choose(position: position, forPlayer: guestPlayer!)
     }
 }

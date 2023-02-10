@@ -8,10 +8,9 @@
 import SwiftUI
 
 struct GameView: View {
+    typealias BoardItem = TicTacToeGame.Board.BoardItem
     
     @StateObject var model: GameViewModel
-    @State private var isShowingSettings = false
-    var vGridLayout = [GridItem(), GridItem(), GridItem()]
     
     var body: some View {
         NavigationStack {
@@ -20,23 +19,23 @@ struct GameView: View {
                 HStack {
                     Spacer()
                     ZStack {
-                        GameBoardGrid(columns: model.columns, itens: model.cards){ item in
-                            CardView(content: item.owner?.icon ?? "", color: Color(item.owner?.color ?? "ColorRed") )
+                        GameBoardGrid(columns: model.columns, itens: model.boardItens){ item in
+                            BoardItemView(icon: item.owner?.icon ?? "", color: item.owner?.color ?? "ColorRed")
                                 .onTapGesture {
                                     withAnimation(.linear) {
-                                        if !model.choose(boardItem: item) {
+                                        if !model.choose(position: item.position) {
                                             UINotificationFeedbackGenerator().notificationOccurred(.error)
                                         }
                                     }
                                 }
                         }
-                        if model.gameFinished {
+                        if model.isGameFinished {
                             Color("MainBackground")
                                 .cornerRadius(20)
                                 .opacity(0.7)
                             if model.hasWinner {
-                                Text("\(model.playerInTurn.name) Won the game!")
-                                    .foregroundColor(Color(model.playerInTurn.color))
+                                Text("\(model.playerInTurnName) Won the game!")
+                                    .foregroundColor(Color(model.playerInTurnColor))
                                     .onAppear() {
                                         SoundPlayer.playSound(forKey: "Applause", andExtension: "mp3")
                                     }
@@ -52,18 +51,20 @@ struct GameView: View {
                     Spacer()
                 }
                 Spacer()
-                Text("\(model.playerInTurn.name)'s turn")
-                    .foregroundColor(Color(model.playerInTurn.color))
+                Text("\(model.playerInTurnName)'s turn")
+                    .foregroundColor(Color(model.playerInTurnColor))
                     .padding(.top)
                 Spacer()
-                    Image(systemName:"arrow.clockwise")
-                        .padding(.horizontal)
-                        .onTapGesture {
-                            withAnimation(.linear) {
-                                model.startANewGame()
-                            }
+                Image(systemName:"arrow.clockwise")
+                    .padding(.horizontal)
+                    .onTapGesture {
+                        withAnimation(.linear) {
+                            
+                            model.restart()
+                            
                         }
-                .foregroundColor(.blue)
+                    }
+                    .foregroundColor(.blue)
                 
             }
             .background(Color("MainBackground"))
@@ -72,13 +73,13 @@ struct GameView: View {
         .toolbar {
             ToolbarItem {
                 Button {
-                    isShowingSettings = true
+                    model.isShowingSettings = true
                 } label: {
                     Image(systemName: "gearshape")
                 }
             }
         }
-        .sheet(isPresented: $isShowingSettings) {
+        .sheet(isPresented: $model.isShowingSettings) {
             NavigationView {
                 SettingsView(model:model)
             }
@@ -91,18 +92,18 @@ struct GameView: View {
         }
     }
     
-    struct CardView: View {
-        var content: String
-        var color: Color
+    struct BoardItemView: View {
+        var icon: String
+        var color: String
         
         var body: some View {
             GeometryReader { geometry in
                 ZStack {
                     Color("MainBackground")
-                        .opacity(0.1)
-                    Text(content)
+                        .opacity(0.01)
+                    Text(icon)
                         .font(Font.custom("Chalkduster", size: geometry.size.height * 0.7))
-                        .foregroundColor(color)
+                        .foregroundColor(Color(color))
                         .frame(alignment: .center)
                 }
             }

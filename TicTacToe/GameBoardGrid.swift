@@ -18,15 +18,13 @@ struct GameBoardGrid<Item, ItemView>: View where ItemView: View, Item: Identifia
             let columnWidth = (minDimension * CGFloat(columns-1)) / CGFloat(columns)
             let gridItens = Array(repeating:GridItem(.adaptive(minimum: columnWidth)), count: columns)
             
-            ZStack{
-                LazyVGrid(columns: gridItens) {
-                    ForEach(itens) { item in
-                        content(item)
-                            .aspectRatio(1, contentMode: .fill)
-                    }
+            LazyVGrid(columns: gridItens) {
+                ForEach(itens) { item in
+                    content(item)
+                        .aspectRatio(1, contentMode: .fill)
                 }
-                .background(Image("Board").resizable())
             }
+            .background(Image("Board").resizable())
         }
     }
 }

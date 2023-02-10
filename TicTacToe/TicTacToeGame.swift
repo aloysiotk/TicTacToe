@@ -7,30 +7,30 @@
 
 import Foundation
 
-struct TicTacToeGame<SomePlayer> where SomePlayer: Equatable, SomePlayer:Codable {
-    let columns: Int
-    var player1: SomePlayer
-    var player2: SomePlayer
-    private(set) var board: [BoardItem] = []
+struct TicTacToeGame {
+    typealias BoardPosition = Board.BoardPosition
+    
+    private static let columns = 3
+    
+    var player1: Player
+    var player2: Player
+    private(set) var board = Board(columns: columns)
     private(set) var matchCount = 0
     private(set) var moveCount = 0
-    var playerInTurn : SomePlayer {(matchCount+moveCount)%2 == (isGuest ? 1 : 0) ? player1 : player2}
-    var gameFinished: Bool {hasWinner || board.filter({$0.owner == nil}).isEmpty}
-    
-    //Change this logic
-    var isGuest = false
-    //
+    var playerInTurn: Player {(matchCount+moveCount)%2 == 0 ? player1 : player2}
+    var isGameFinished: Bool {hasWinner || board.isFull}
     
     var hasWinner : Bool {
-        let filteredCards = board.filter({$0.owner == playerInTurn})
+        let filteredItens = board.itens.filter({$0.owner == playerInTurn})
+        let columns = TicTacToeGame.columns
         
-        if filteredCards.filter({$0.hPosition == $0.vPosition}).count == columns
-            || filteredCards.filter({$0.hPosition + $0.vPosition == columns-1}).count == columns {
+        if filteredItens.filter({$0.position.h == $0.position.v}).count == columns
+            || filteredItens.filter({$0.position.h + $0.position.v == columns-1}).count == columns {
             return true
         } else {
             for i in 0..<columns {
-                if filteredCards.filter({$0.owner == playerInTurn && $0.hPosition == i}).count == columns
-                    || filteredCards.filter({$0.owner == playerInTurn && $0.vPosition == i}).count == columns {
+                if filteredItens.filter({$0.owner == playerInTurn && $0.position.h == i}).count == columns
+                    || filteredItens.filter({$0.owner == playerInTurn && $0.position.v == i}).count == columns {
                     return true
                 }
             }
@@ -38,19 +38,15 @@ struct TicTacToeGame<SomePlayer> where SomePlayer: Equatable, SomePlayer:Codable
         return false
     }
     
-    init(columns: Int, player1: SomePlayer, player2: SomePlayer) {
-        self.columns = columns
+    init(player1: Player, player2: Player) {
         self.player1 = player1
         self.player2 = player2
-        
-        populateBoard()
     }
     
-    @discardableResult mutating func choose(boardItem: BoardItem) -> Bool {
-        if let chosenIndex = board.firstIndex(where: {$0.id == boardItem.id}) {
-            if board[chosenIndex].owner == nil {
-                board[chosenIndex].owner = playerInTurn
-                if !gameFinished  {
+    @discardableResult mutating func choose(position: BoardPosition, forPlayer player: Player) -> Bool {
+        if playerInTurn == player {
+            if board.setOwner(player, forPosition: position) {
+                if !hasWinner {
                     moveCount += 1
                 }
                 return true
@@ -59,100 +55,87 @@ struct TicTacToeGame<SomePlayer> where SomePlayer: Equatable, SomePlayer:Codable
         return false
     }
     
-    mutating func startANewGame () {
-        matchCount += gameFinished ? 1 : 0
+    mutating func restart() {
+        matchCount += isGameFinished ? 1 : 0
         moveCount = 0
-        board = []
-        populateBoard()
+        board = Board(columns: TicTacToeGame.columns)
     }
     
-    mutating func populateBoard() {
-        for i in 0..<columns*columns {
-            board.append(BoardItem(hPosition: i/columns, vPosition: i%columns, id:"\(i/columns)\(i%columns)"))
-        }
-    }
+    //MARK: -Board
     
-    //MARK: -Card
-    
-    struct BoardItem: Identifiable, Codable {
-        var owner: SomePlayer? = nil
-        let hPosition: Int
-        let vPosition: Int
-        let id: String
+    struct Board {
+        let columns: Int
+        private(set) var itens: [BoardItem]
+        var isFull: Bool {itens.filter({$0.owner == nil}).isEmpty}
         
-        init(hPosition: Int, vPosition: Int, id: String) {
-            self.hPosition = hPosition
-            self.vPosition = vPosition
-            self.id = id
+        init(columns: Int) {
+            self.columns = columns
+            self.itens = []
+            
+            populateBoardItens()
         }
         
-        init(fromData data: Data) throws {
-            self = try JSONDecoder().decode(BoardItem.self, from: data)
-        }
-
-        func encode() -> Data? {
-            do {
-                return try JSONEncoder().encode(self)
-            } catch {
-                print("Error encoding BoardItem")
-                return nil
+        private mutating func populateBoardItens() {
+            for i in 0..<columns*columns {
+                let position = BoardPosition(h:i/columns, v:i%columns)
+                itens.append(BoardItem(position: position, id:"\(position.h)\(position.v)"))
             }
         }
-    }
-}
-
-//MARK: -Player
-
-class Player: Equatable, Codable {
-    let id: Int
-    var name: String
-    var icon: String
-    var color: String
-    
-    init(id: Int, name: String, icon: String, color: String) {
-        self.id = id
-        self.name = name
-        self.icon = icon
-        self.color = color
-    }
-    
-    convenience init(fromData data: Data) throws {
-        let player = try JSONDecoder().decode(Player.self, from: data)
-        self.init(id: player.id, name: player.name, icon: player.icon, color: player.color)
-    }
-    
-    func encode() -> Data? {
-        do {
-            return try JSONEncoder().encode(self)
-        }catch {
-            print("Error encoding Player")
+        
+        @discardableResult mutating func setOwner(_ player: Player, forPosition position: BoardPosition) -> Bool {
+            if let index = indexIfPositionAvailable(position) {
+                itens[index].owner = player
+                
+                return true
+            }
+            return false
+        }
+        
+        private func indexIfPositionAvailable(_ position: BoardPosition) -> Int? {
+            if let index = itens.firstIndex(where:{$0.position == position}) {
+                if itens[index].owner == nil {
+                    return index
+                }
+            }
             return nil
         }
-    }
-    
-    func cloneChangingId(id: Int) -> Player {
-        return Player(id: id, name: self.name, icon: self.icon, color: self.color)
-    }
-    
-    static func == (lhs: Player, rhs: Player) -> Bool {
-        return lhs.id == rhs.id
-    }
-}
-
-class LocalPlayer: Player {
-    override var name: String {didSet { DataHandler.store(data:name, forKey: "Player\(id).name")}}
-    override var icon: String {didSet { DataHandler.store(data:icon, forKey: "Player\(id).icon")}}
-    override var color: String {didSet { DataHandler.store(data:color, forKey: "Player\(id).color")}}
-    
-    init (id: Int) {
-        let name = DataHandler.retrieve(forKey: "Player\(id).name") ?? "Player \(id)"
-        let icon = DataHandler.retrieve(forKey: "Player\(id).icon") ?? String(id)
-        let color = DataHandler.retrieve(forKey: "Player\(id).color") ?? "ColorRed"
         
-        super.init(id: id, name: name, icon: icon, color: color)
-    }
-    
-    required init(from decoder: Decoder) throws {
-        try super.init(from: decoder)
+        //MARK: -BoardItem
+        
+        struct BoardItem: Identifiable {
+            var owner: Player? = nil
+            let position: BoardPosition
+            let id: String
+            
+            init(position: BoardPosition, id: String) {
+                self.position = position
+                self.id = id
+            }
+        }
+        
+        //MARK: -BoardPosition
+        
+        struct BoardPosition: Equatable, Codable {
+            let h: Int
+            let v: Int
+            
+            init(h: Int, v: Int) {
+                self.h = h
+                self.v = v
+            }
+            
+            init(fromData data: Data) throws {
+                self = try JSONDecoder().decode(BoardPosition.self, from: data)
+            }
+
+            func encode() -> Data? {
+                do {
+                    return try JSONEncoder().encode(self)
+                } catch {
+                    print("Error encoding BoardPosition")
+                    return nil
+                }
+            }
+        }
     }
 }
