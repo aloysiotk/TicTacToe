@@ -7,7 +7,6 @@
 
 import Foundation
 
-
 struct DataHandler {
     static func store(data: Bool, forKey key: String) {
         let defaults = UserDefaults.standard

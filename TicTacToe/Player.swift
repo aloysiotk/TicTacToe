@@ -43,6 +43,8 @@ class Player: Equatable, Codable {
     }
 }
 
+//MARK: - LocalPlayer
+
 class LocalPlayer: Player {
     override var name: String {didSet { DataHandler.store(data:name, forKey: "Player\(id).name")}}
     override var icon: String {didSet { DataHandler.store(data:icon, forKey: "Player\(id).icon")}}
@@ -58,5 +60,77 @@ class LocalPlayer: Player {
     
     required init(from decoder: Decoder) throws {
         try super.init(from: decoder)
+    }
+}
+
+//MARK: - AutomatedPlayer
+
+class AutomatedPlayer: Player {
+    typealias BoardPosition = TicTacToeGame.BoardPosition
+    
+    func play(board: TicTacToeGame.Board, choose:(BoardPosition)->()) {
+        var i: Int
+        
+        if let x = firstPossibleToWinIndex(board: board) {
+            i = x
+        } else if let y = firstPossibleToLoseIndex(board: board) {
+            i = y
+        } else {
+            repeat {
+                i = Int.random(in: 0..<board.itens.count)
+            } while board.itens[i].owner != nil && !board.isFull
+        }
+        
+        choose(board.itens[i].position)
+    }
+    
+    func firstPossibleToWinIndex(board: TicTacToeGame.Board) -> Int? {
+        let mineMoves = board.itens.filter({$0.owner == self})
+        let oponentMoves = board.itens.filter({$0.owner != self && $0.owner != nil})
+        let columns = board.columns - 1
+        
+        if mineMoves.filter({$0.position.h == $0.position.v}).count == columns
+            && oponentMoves.filter({$0.position.h == $0.position.v}).count == 0 {
+            return board.itens.firstIndex(where: {$0.position.h == $0.position.v && $0.owner == nil})
+        } else if mineMoves.filter({$0.position.h + $0.position.v == columns}).count == columns
+                    && oponentMoves.filter({$0.position.h + $0.position.v == columns}).count == 0{
+            return board.itens.firstIndex(where: {$0.position.h + $0.position.v == columns && $0.owner == nil})
+        } else {
+            for i in 0...columns {
+                if mineMoves.filter({$0.position.h == i}).count == columns
+                    && oponentMoves.filter({$0.position.h == i}).count == 0 {
+                    return board.itens.firstIndex(where: {$0.position.h == i && $0.owner == nil})
+                } else if mineMoves.filter({$0.position.v == i}).count == columns
+                            && oponentMoves.filter({$0.position.v == i}).count == 0 {
+                    return board.itens.firstIndex(where: {$0.position.v == i && $0.owner == nil})
+                }
+            }
+        }
+        return nil
+    }
+    
+    func firstPossibleToLoseIndex(board: TicTacToeGame.Board) -> Int? {
+        let mineMoves = board.itens.filter({$0.owner == self})
+        let oponentMoves = board.itens.filter({$0.owner != self && $0.owner != nil})
+        let columns = board.columns - 1
+        
+        if mineMoves.filter({$0.position.h == $0.position.v}).count == 0
+            && oponentMoves.filter({$0.position.h == $0.position.v}).count == columns {
+            return board.itens.firstIndex(where: {$0.position.h == $0.position.v && $0.owner == nil})
+        } else if mineMoves.filter({$0.position.h + $0.position.v == columns}).count == 0
+                    && oponentMoves.filter({$0.position.h + $0.position.v == columns}).count == columns{
+            return board.itens.firstIndex(where: {$0.position.h + $0.position.v == columns && $0.owner == nil})
+        } else {
+            for i in 0...columns {
+                if mineMoves.filter({$0.position.h == i}).count == 0
+                    && oponentMoves.filter({$0.position.h == i}).count == columns {
+                    return board.itens.firstIndex(where: {$0.position.h == i && $0.owner == nil})
+                } else if mineMoves.filter({$0.position.v == i}).count == 0
+                            && oponentMoves.filter({$0.position.v == i}).count == columns {
+                    return board.itens.firstIndex(where: {$0.position.v == i && $0.owner == nil})
+                }
+            }
+        }
+        return nil
     }
 }

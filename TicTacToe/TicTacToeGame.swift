@@ -12,8 +12,8 @@ struct TicTacToeGame {
     
     private static let columns = 3
     
-    var player1: Player
-    var player2: Player
+    private(set) var player1: Player
+    private(set) var player2: Player
     private(set) var board = Board(columns: columns)
     private(set) var matchCount = 0
     private(set) var moveCount = 0
@@ -22,15 +22,15 @@ struct TicTacToeGame {
     
     var hasWinner : Bool {
         let filteredItens = board.itens.filter({$0.owner == playerInTurn})
-        let columns = TicTacToeGame.columns
+        let columns = board.columns
         
         if filteredItens.filter({$0.position.h == $0.position.v}).count == columns
             || filteredItens.filter({$0.position.h + $0.position.v == columns-1}).count == columns {
             return true
         } else {
             for i in 0..<columns {
-                if filteredItens.filter({$0.owner == playerInTurn && $0.position.h == i}).count == columns
-                    || filteredItens.filter({$0.owner == playerInTurn && $0.position.v == i}).count == columns {
+                if filteredItens.filter({$0.position.h == i}).count == columns
+                    || filteredItens.filter({$0.position.v == i}).count == columns {
                     return true
                 }
             }
@@ -82,10 +82,9 @@ struct TicTacToeGame {
             }
         }
         
-        @discardableResult mutating func setOwner(_ player: Player, forPosition position: BoardPosition) -> Bool {
+        @discardableResult mutating func setOwner(_ owner: Player, forPosition position: BoardPosition) -> Bool {
             if let index = indexIfPositionAvailable(position) {
-                itens[index].owner = player
-                
+                itens[index].owner = owner
                 return true
             }
             return false

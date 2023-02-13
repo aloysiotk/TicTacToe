@@ -16,11 +16,12 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     private var session: MCSession?
     private var advertiser: MCNearbyServiceAdvertiser
     private var browser: MCNearbyServiceBrowser
-    private var availablePeer: [MCPeerID] = []
+    private var availablePeers: [MCPeerID] = []
     private var pendingInvitation: [(peer:MCPeerID, invitationHandler:(Bool, MCSession?) -> Void)] = []
     private var delegate : MCConnectorDelegate
+    private var connectedPeer: MCPeerID?
     
-    var isConnected = false
+    var isConnected: Bool {(session?.connectedPeers.count ?? 0 > 0)}
     
     init(withPublicName publicName: String, andDelegate delegate: MCConnectorDelegate) {
         self.peerID = MCPeerID(displayName: publicName)
@@ -42,27 +43,40 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     func stopAdvertising() {
         advertiser.stopAdvertisingPeer()
         browser.stopBrowsingForPeers()
-        availablePeer.removeAll()
+        availablePeers.removeAll()
     }
     
     func invitePeer(_ peer: MCCPeer) {
         session = MCSession.init(peer: peerID, securityIdentity: nil, encryptionPreference: .required)
         session?.delegate = self
         
-        if let invtPeer = availablePeer.first(where:{$0.hash==peer.id}) {
+        if let invtPeer = availablePeers.first(where:{$0.hash==peer.id}) {
             browser.invitePeer(invtPeer, to: session!, withContext: nil, timeout: 60)
         }
     }
     
     func respondInvitationFor(_ peer:MCCPeer, withValue value: Bool) {
-        session = MCSession.init(peer: peerID, securityIdentity: nil, encryptionPreference: .required)
-        session?.delegate = self
+        if value {
+            session = MCSession.init(peer: peerID, securityIdentity: nil, encryptionPreference: .required)
+            session?.delegate = self
+        }
         
         if let index = pendingInvitation.firstIndex(where:{$0.peer.hash==peer.id}) {
             let invitation = pendingInvitation.remove(at:index)
             
-            invitation.invitationHandler(value, session)
+            invitation.invitationHandler(value, value ? session : nil)
         }
+    }
+    
+    func disconnect() {
+        session?.delegate = nil
+        session?.disconnect()
+        self.session = nil
+        if let peer = connectedPeer {
+            self.delegate.didDisconnectFrom(MCCPeer(id: peer.hash, name: peer.displayName),
+                                            showAlert: false)
+        }
+        self.connectedPeer = nil
     }
     
     func send(_ key: ConnData.ConnDataKey, withData data: Data?) {
@@ -93,14 +107,14 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     //MARK: -MCNearbyServiceBrowserDelegate
     
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
-        availablePeer.append(peerID)
+        availablePeers.append(peerID)
         DispatchQueue.main.async {
             self.delegate.didFoundPeer(MCCPeer(id: peerID.hash, name: peerID.displayName))
         }
     }
     
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
-        availablePeer.removeAll{$0==peerID}
+        availablePeers.removeAll{$0==peerID}
         DispatchQueue.main.async {
             self.delegate.didLostPeer(MCCPeer(id: peerID.hash, name: peerID.displayName))
         }
@@ -113,14 +127,18 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
             switch state {
             case .notConnected:
                 self.session = nil
-                self.isConnected = false
-                self.delegate.didDisconnect()
+                if self.connectedPeer != nil {
+                        self.delegate.didDisconnectFrom(MCCPeer(id: peerID.hash, name: peerID.displayName),
+                                                        showAlert: true)
+                } else {
+                    self.delegate.didRecieveDeclineFrom(MCCPeer(id: peerID.hash, name: peerID.displayName))
+                }
             case .connected:
                 self.stopAdvertising()
+                self.connectedPeer = peerID
                 self.delegate.didConnectTo(MCCPeer(id: peerID.hash, name: peerID.displayName))
-                self.isConnected = true
             case .connecting:
-                print("TODO: Handle connecting state")
+                print("Connecting state")
             default:
                 print("Session State:\(state) not handled")
             }
@@ -131,7 +149,6 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
         DispatchQueue.main.async {
             do {
                 let connData = try ConnData(fromData: data)
-                
                 switch connData.key {
                 case .player:
                     self.delegate.didRecievePlayer(try Player(fromData: connData.data!))
@@ -192,7 +209,8 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     struct MCCPeer: Equatable, Identifiable {
         let id : Int
         let name : String
-        var state: MCCPeerState = .idle
+        var state: MCCPeerState = .idle {didSet {lastStateChange = Date()}}
+        private(set) var lastStateChange = Date()
         
         enum MCCPeerState {
             case idle
@@ -218,9 +236,11 @@ protocol MCConnectorDelegate {
     
     func didRecieveInvitationFrom(_ peer: MCConnector.MCCPeer)
     
+    func didRecieveDeclineFrom(_ peer: MCConnector.MCCPeer)
+    
     func didConnectTo(_ peer: MCConnector.MCCPeer)
     
-    func didDisconnect()
+    func didDisconnectFrom(_ peer: MCConnector.MCCPeer, showAlert: Bool)
     
     func didRecievePlayer(_ player: Player)
     

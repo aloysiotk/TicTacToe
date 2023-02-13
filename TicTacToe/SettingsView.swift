@@ -9,52 +9,60 @@ import SwiftUI
 
 
 struct SettingsView: View {
+    typealias MCCPeer = GameViewModel.MCCPeer
+    
     @StateObject var model: GameViewModel
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         Form {
-            Section(header: Text("Player 1")) {
-                TextInputItem(title: "Name", defaultText: "Player 1 Name", text: $model.mainPlayer.name)
-                ColorPicker(title: "Color", color: $model.mainPlayer.color)
-                TextInputItem(title: "Icon", defaultText: "Player 1 Icon", text: $model.mainPlayer.icon)
+            Section(header: Text("Main Player")) {
+                TextInputItem(title:"Name", defaultText:"Main Player Name", text:$model.mainPlayer.name)
+                ColorPicker(title:"Color", color:$model.mainPlayer.color)
+                TextInputItem(title:"Icon", defaultText:"Main Player Icon", text:$model.mainPlayer.icon)
             }
-            if !model.isMultipeerOn {
-                Section(header: Text("Player 2")) {
-                    TextInputItem(title: "Name", defaultText: "Player 2 Name", text: model.guestPlayer!.bindingName())
-                    ColorPicker(title: "Color", color: model.guestPlayer!.bindingColor())
-                    TextInputItem(title: "Icon", defaultText: "Player 2 Icon", text: model.guestPlayer!.bindingIcon())
-                }
+
+            Section(header: Text("")) {
+                Toggle("Multiplayer", isOn: $model.isMultiplayer)
             }
-            
-            Section(header: Text("Available Players")) {
-                Toggle("Multipeer", isOn: $model.isMultipeerOn)
-                if model.availablePeers.isEmpty && model.isMultipeerOn {
-                    Text("Searching nearby players...")
-                } else {
-                    ForEach(model.availablePeers) { peer in
-                        PeerView(peer: peer)
-                            .onTapGesture {
-                                if peer.state == .idle && !model.isConnecting {
-                                    model.invitePeer(peer)
-                                }
-                            }
+
+            if model.isMultiplayer {
+                if !model.isConnected {
+                    Section(header: Text("Guest local player")) {
+                        TextInputItem(title:"Name", defaultText:"Guest Player Name", text:$model.guestPlayer.name)
+                        ColorPicker(title:"Color", color:$model.guestPlayer.color)
+                        TextInputItem(title:"Icon", defaultText:"Guest Player Icon", text:$model.guestPlayer.icon)
                     }
+                }
+                
+                Section(header: Text("Remote Players")) {
+                    if model.availablePeers.isEmpty && model.isMultiplayer {
+                        PeerView(name:"Searching for remore players...", state:.connecting)
+                    } else {
+                        ForEach(model.availablePeers) { peer in
+                            PeerView(name:peer.name, state:peer.state)
+                                .onTapGesture {
+                                    if !model.peerTouched(peer) {
+                                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                                    }
+                                }
+                        }
+                    }
+                }
+            } else {
+                Section(header: Text("Local Players")) {
+                    PeerView(name:"Easy", state:.connected)
+                    PeerView(name:"Medium", state:.idle)
+                    PeerView(name:"Hard", state:.idle)
                 }
             }
         }
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Close") {
-                    dismiss()
-                }
-            }
+            toolBarItem()
         }
-        .alert(isPresented: $model.isShowingInvitation) {
-            invitationAlert()
+        .alert(isPresented: $model.isShowingAlert) {
+            (model.alert ?? {Alert(title: Text("Alert is nil..."))})()
         }
-        .onAppear{model.startAdvertising()}
-        .onDisappear{model.stopAdvertising()}
     }
     
     struct TextInputItem: View {
@@ -100,34 +108,28 @@ struct SettingsView: View {
     }
     
     struct PeerView: View {
-        var peer: MCConnector.MCCPeer
+        var name: String
+        var state: MCCPeer.MCCPeerState
         
         var body: some View {
             HStack {
-                Text(peer.name)
+                Text(name)
                 Spacer()
-                if peer.state == .connecting {
+                if state == .connecting {
                     ProgressView()
-                } else if peer.state == .connected {
+                } else if state == .connected {
                     Image(systemName: "checkmark")
                 }
             }
         }
     }
     
-    func invitationAlert() -> Alert {
-        let peer = model.firstPendingInvitation
-        
-        return Alert(
-            title: Text("Invitation received."),
-            message: Text("\(peer!.name) would like to play with you."),
-            primaryButton: .default(Text("Decline")) {
-                model.respondInvitation(false, forPeer: peer!)
-            },
-            secondaryButton: .default(Text("Accept")) {
-                model.respondInvitation(true, forPeer: peer!)
+    func toolBarItem() -> ToolbarItem<(), Button<Text>> {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Close") {
+                dismiss()
             }
-        )
+        }
     }
 }
 

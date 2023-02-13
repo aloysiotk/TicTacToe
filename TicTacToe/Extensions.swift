@@ -38,26 +38,3 @@ extension String {
         }
     }
 }
-
-extension Player {
-    func bindingName() -> Binding<String> {
-        Binding(
-            get: {self.name},
-            set: { self.name = $0 }
-        )
-    }
-    
-    func bindingColor() -> Binding<String> {
-        Binding(
-            get: {self.color},
-            set: { self.color = $0 }
-        )
-    }
-    
-    func bindingIcon() -> Binding<String> {
-        Binding(
-            get: {self.icon},
-            set: { self.icon = $0 }
-        )
-    }
-}
