@@ -51,7 +51,7 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
         session?.delegate = self
         
         if let invtPeer = availablePeers.first(where:{$0.hash==peer.id}) {
-            browser.invitePeer(invtPeer, to: session!, withContext: nil, timeout: 60)
+            browser.invitePeer(invtPeer, to: session!, withContext: nil, timeout: 30)
         }
     }
     
