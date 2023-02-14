@@ -100,6 +100,10 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
         game.choose(position: position, forPlayer: guestPlayer)
     }
     
+    func didEnterInBackground() {
+        stopAdvertising()
+    }
+    
     private func startAdvertising() {
         availablePeers = []
         connection?.startAdvertising()

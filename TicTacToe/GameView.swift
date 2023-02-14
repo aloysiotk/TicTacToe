@@ -10,6 +10,7 @@ import SwiftUI
 struct GameView: View {
     typealias BoardItem = GameViewModel.Board.BoardItem
     
+    @Environment(\.scenePhase) var scenePhase
     @StateObject var model: GameViewModel
     
     var body: some View {
@@ -64,6 +65,11 @@ struct GameView: View {
             }
             .background(Color("MainBackground"))
             .font(Font.custom("Chalkduster", size: 30))
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .background {
+                model.didEnterInBackground()
+            }
         }
         .toolbar {
             ToolbarItem {
