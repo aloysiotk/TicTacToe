@@ -10,6 +10,7 @@
 		75002430298DF44700852C91 /* DataHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7500242F298DF44700852C91 /* DataHandler.swift */; };
 		75002432298DF47F00852C91 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75002431298DF47F00852C91 /* SoundPlayer.swift */; };
 		75002436298DF4DB00852C91 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75002435298DF4DB00852C91 /* Extensions.swift */; };
+		75296FE0299D72D800060926 /* TicTacToeClassification.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 75296FDF299D72D800060926 /* TicTacToeClassification.mlmodel */; };
 		753B3AA72980500F00EDDEFD /* TicTacToeGame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753B3AA62980500F00EDDEFD /* TicTacToeGame.swift */; };
 		753B3AA929819A1900EDDEFD /* GameBoardGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753B3AA829819A1900EDDEFD /* GameBoardGrid.swift */; };
 		753B3AAB2983227400EDDEFD /* Applause.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 753B3AAA2983227400EDDEFD /* Applause.mp3 */; };
@@ -28,6 +29,7 @@
 		7500242F298DF44700852C91 /* DataHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataHandler.swift; sourceTree = "<group>"; };
 		75002431298DF47F00852C91 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
 		75002435298DF4DB00852C91 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
+		75296FDF299D72D800060926 /* TicTacToeClassification.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = TicTacToeClassification.mlmodel; sourceTree = "<group>"; };
 		753B3AA62980500F00EDDEFD /* TicTacToeGame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TicTacToeGame.swift; sourceTree = "<group>"; };
 		753B3AA829819A1900EDDEFD /* GameBoardGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameBoardGrid.swift; sourceTree = "<group>"; };
 		753B3AAA2983227400EDDEFD /* Applause.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = Applause.mp3; sourceTree = "<group>"; };
@@ -86,6 +88,7 @@
 				7500242F298DF44700852C91 /* DataHandler.swift */,
 				75002431298DF47F00852C91 /* SoundPlayer.swift */,
 				75002435298DF4DB00852C91 /* Extensions.swift */,
+				75296FDF299D72D800060926 /* TicTacToeClassification.mlmodel */,
 				75C76180297EF8E4007178B4 /* Assets.xcassets */,
 				753B3AAA2983227400EDDEFD /* Applause.mp3 */,
 				756AACBD2992F1A5008A24B8 /* Chalkduster.ttf */,
@@ -177,6 +180,7 @@
 				756AACC02995730F008A24B8 /* Player.swift in Sources */,
 				75C021BF29843E6A0034FB26 /* SettingsView.swift in Sources */,
 				753B3AA929819A1900EDDEFD /* GameBoardGrid.swift in Sources */,
+				75296FE0299D72D800060926 /* TicTacToeClassification.mlmodel in Sources */,
 				75C021C4298DC0EF0034FB26 /* GameViewModel.swift in Sources */,
 				753B3AA72980500F00EDDEFD /* TicTacToeGame.swift in Sources */,
 				75002432298DF47F00852C91 /* SoundPlayer.swift in Sources */,

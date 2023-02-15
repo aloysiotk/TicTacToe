@@ -24,6 +24,18 @@ extension Array<MCConnector.MCCPeer> {
     }
 }
 
+extension Array<TicTacToeGame.Board.BoardItem> {
+    func getOwnersId() -> [Double] {
+        var ids: [Double] = []
+        
+        for item in self {
+            ids.append(Double(item.owner?.id ?? 0))
+        }
+        return ids
+    }
+}
+
+
 extension String {
     init(fromData data: Data) throws {
         self = try JSONDecoder().decode(String.self, from: data)

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreML
 
 struct TicTacToeGame {
     typealias BoardPosition = Board.BoardPosition
@@ -17,10 +18,11 @@ struct TicTacToeGame {
     private(set) var board = Board(columns: columns)
     private(set) var matchCount = 0
     private(set) var moveCount = 0
+    private var mlModel: TicTacToeClassification?
     var playerInTurn: Player {(matchCount+moveCount)%2 == 0 ? player1 : player2}
     var isGameFinished: Bool {hasWinner || board.isFull}
     
-    var hasWinner : Bool {
+    var hasWinnerOld: Bool {
         let filteredItens = board.itens.filter({$0.owner == playerInTurn})
         let columns = board.columns
         
@@ -38,9 +40,25 @@ struct TicTacToeGame {
         return false
     }
     
+    var hasWinner: Bool {
+        let i = board.itens.getOwnersId()
+        
+        do {
+            var modelPrediction = try mlModel?.prediction(pos0:i[0], pos1:i[1], pos2:i[2], pos3:i[3], pos4:i[4], pos5:i[5], pos6:i[6], pos7:i[7], pos8:i[8])
+            return modelPrediction!.Winner != 0
+        } catch {
+            return false
+        }
+    }
+    
     init(player1: Player, player2: Player) {
-        self.player1 = player1
-        self.player2 = player2
+        do {
+            self.player1 = player1
+            self.player2 = player2
+            self.mlModel = try TicTacToeClassification(configuration: MLModelConfiguration())
+        } catch {
+            print("TicTacToeClassification init error")
+        }
     }
     
     @discardableResult mutating func choose(position: BoardPosition, forPlayer player: Player) -> Bool {
