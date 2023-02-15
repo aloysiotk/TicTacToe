@@ -42,13 +42,10 @@ struct TicTacToeGame {
     
     var hasWinner: Bool {
         let i = board.itens.getOwnersId()
-        
         do {
             var modelPrediction = try mlModel?.prediction(pos0:i[0], pos1:i[1], pos2:i[2], pos3:i[3], pos4:i[4], pos5:i[5], pos6:i[6], pos7:i[7], pos8:i[8])
             return modelPrediction!.Winner != 0
-        } catch {
-            return false
-        }
+        } catch {return false}
     }
     
     init(player1: Player, player2: Player) {
