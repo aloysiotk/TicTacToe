@@ -40,7 +40,7 @@ struct GameView: View {
                                         SoundPlayer.playSound(forKey: "Applause", andExtension: "mp3")
                                     }
                             } else {
-                                Text("Tied game...")
+                                Text("Game is draw...")
                                     .foregroundColor(.gray)
                             }
                         }

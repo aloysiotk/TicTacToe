@@ -8,6 +8,8 @@
 import Foundation
 
 class Player: Equatable, Codable {
+    typealias BoardPosition = TicTacToeGame.BoardPosition
+    
     let id: Int
     var name: String
     var icon: String
@@ -36,6 +38,9 @@ class Player: Equatable, Codable {
     
     func cloneChangingId(id: Int) -> Player {
         return Player(id: id, name: self.name, icon: self.icon, color: self.color)
+    }
+    
+    func play(game: TicTacToeGame, choose:(BoardPosition)->()) {
     }
     
     static func == (lhs: Player, rhs: Player) -> Bool {
@@ -68,20 +73,20 @@ class LocalPlayer: Player {
 class AutomatedPlayer: Player {
     typealias BoardPosition = TicTacToeGame.BoardPosition
     
-    func play(board: TicTacToeGame.Board, choose:(BoardPosition)->()) {
+    override func play(game: TicTacToeGame, choose:(BoardPosition)->()) {
         var i: Int
         
-        if let x = firstPossibleToWinIndex(board: board) {
+        if let x = firstPossibleToWinIndex(board: game.board) {
             i = x
-        } else if let y = firstPossibleToLoseIndex(board: board) {
+        } else if let y = firstPossibleToLoseIndex(board: game.board) {
             i = y
         } else {
             repeat {
-                i = Int.random(in: 0..<board.itens.count)
-            } while board.itens[i].owner != nil && !board.isFull
+                i = Int.random(in: 0..<game.board.itens.count)
+            } while game.board.itens[i].owner != nil && !game.board.isFull
         }
         
-        choose(board.itens[i].position)
+        choose(game.board.itens[i].position)
     }
     
     func firstPossibleToWinIndex(board: TicTacToeGame.Board) -> Int? {
@@ -132,5 +137,83 @@ class AutomatedPlayer: Player {
             }
         }
         return nil
+    }
+}
+
+//MARK: - MiniMaxPlayer
+
+class MiniMaxPlayer: Player {
+    typealias BoardPosition = TicTacToeGame.BoardPosition
+    
+    var depth = 10
+    
+    init(id: Int, name: String, icon: String, color: String, depth: Int) {
+        self.depth = depth
+        super.init(id: id, name: name, icon: icon, color: color)
+    }
+    
+    required init(from decoder: Decoder) throws {
+        try super.init(from: decoder)
+    }
+    
+    override func play(game: TicTacToeGame, choose:(BoardPosition)->()) {
+        var position: BoardPosition = BoardPosition(h: -1, v: -1)
+        if game.turnCount == 0 {
+            let i = Int.random(in: 0..<game.board.itens.count)
+            position = game.board.itens[i].position
+        } else {
+            minimax(game: game, depth: 10, alpha: Int.min, beta: Int.max, isMax: true, isFirstLevel: true, position: &position)
+        }
+        choose(position)
+    }
+    
+    @discardableResult func minimax(game: TicTacToeGame, depth: Int, alpha: Int, beta: Int, isMax: Bool, isFirstLevel: Bool, position: inout BoardPosition) -> Int {
+        var alpha = alpha, beta = beta, bestScore = isMax ? Int.min : Int.max
+        
+        if depth == 0 || game.isGameFinished {
+            return getScore(game: game) * depth
+        }
+        
+        for item in game.board.itens {
+            if item.owner == nil {
+                var game = game
+                game.choose(position: item.position, forPlayer: game.playerInTurn)
+                let branchScore = minimax(game: game, depth: depth-1, alpha: alpha, beta: beta, isMax: !isMax, isFirstLevel: false, position: &position)
+                if isMax {
+                    alpha = max(alpha, branchScore)
+                    if bestScore < branchScore {
+                        bestScore = branchScore
+                        if isFirstLevel {
+                            position = item.position
+                        }
+                    }
+                } else {
+                    beta = min(beta, branchScore)
+                    if bestScore > branchScore {
+                        bestScore = branchScore
+                        if isFirstLevel {
+                            position = item.position
+                        }
+                    }
+                }
+                
+                if beta <= alpha {
+                    break
+                }
+            }
+        }
+        return bestScore
+    }
+    
+    func getScore(game: TicTacToeGame) -> Int {
+        if game.hasWinner {
+            if game.playerInTurn == self {
+                return 10
+            } else {
+                return -10
+            }
+        } else {
+           return 0
+        }
     }
 }

@@ -17,12 +17,12 @@ struct TicTacToeGame {
     private(set) var player2: Player
     private(set) var board = Board(columns: columns)
     private(set) var matchCount = 0
-    private(set) var moveCount = 0
+    private(set) var  turnCount = 0
     private var mlModel: TicTacToeClassification?
-    var playerInTurn: Player {(matchCount+moveCount)%2 == 0 ? player1 : player2}
+    var playerInTurn: Player {(matchCount + turnCount) % 2 == 0 ? player1 : player2}
     var isGameFinished: Bool {hasWinner || board.isFull}
     
-    var hasWinnerOld: Bool {
+    var hasWinner: Bool {
         let filteredItens = board.itens.filter({$0.owner == playerInTurn})
         let columns = board.columns
         
@@ -40,29 +40,26 @@ struct TicTacToeGame {
         return false
     }
     
-    var hasWinner: Bool {
+    var hasWinnerML: Bool {
         let i = board.itens.getOwnersId()
         do {
-            var modelPrediction = try mlModel?.prediction(pos0:i[0], pos1:i[1], pos2:i[2], pos3:i[3], pos4:i[4], pos5:i[5], pos6:i[6], pos7:i[7], pos8:i[8])
+            let modelPrediction = try mlModel?.prediction(pos0:i[0], pos1:i[1], pos2:i[2], pos3:i[3], pos4:i[4],
+                                                          pos5:i[5], pos6:i[6], pos7:i[7], pos8:i[8])
             return modelPrediction!.Winner != 0
         } catch {return false}
     }
     
     init(player1: Player, player2: Player) {
-        do {
-            self.player1 = player1
-            self.player2 = player2
-            self.mlModel = try TicTacToeClassification(configuration: MLModelConfiguration())
-        } catch {
-            print("TicTacToeClassification init error")
-        }
+        self.player1 = player1
+        self.player2 = player2
+        //self.mlModel = try TicTacToeClassification(configuration: MLModelConfiguration())
     }
     
     @discardableResult mutating func choose(position: BoardPosition, forPlayer player: Player) -> Bool {
         if playerInTurn == player {
-            if board.setOwner(player, forPosition: position) {
+            if board.populate(position: position, withPlayer: player, atTurn: turnCount) {
                 if !hasWinner {
-                    moveCount += 1
+                    turnCount += 1
                 }
                 return true
             }
@@ -72,7 +69,7 @@ struct TicTacToeGame {
     
     mutating func restart() {
         matchCount += isGameFinished ? 1 : 0
-        moveCount = 0
+        turnCount = 0
         board = Board(columns: TicTacToeGame.columns)
     }
     
@@ -97,9 +94,9 @@ struct TicTacToeGame {
             }
         }
         
-        @discardableResult mutating func setOwner(_ owner: Player, forPosition position: BoardPosition) -> Bool {
+        @discardableResult mutating func populate(position: BoardPosition, withPlayer player: Player, atTurn turn: Int) -> Bool {
             if let index = indexIfPositionAvailable(position) {
-                itens[index].owner = owner
+                itens[index].polupateWith(player, atTurn: turn)
                 return true
             }
             return false
@@ -118,12 +115,18 @@ struct TicTacToeGame {
         
         struct BoardItem: Identifiable {
             var owner: Player? = nil
+            var populatedAtTurn: Int?
             let position: BoardPosition
             let id: String
             
             init(position: BoardPosition, id: String) {
                 self.position = position
                 self.id = id
+            }
+            
+            mutating func polupateWith(_ player: Player, atTurn turn: Int) {
+                self.owner = player
+                self.populatedAtTurn = turn
             }
         }
         
@@ -141,7 +144,7 @@ struct TicTacToeGame {
             init(fromData data: Data) throws {
                 self = try JSONDecoder().decode(BoardPosition.self, from: data)
             }
-
+            
             func encode() -> Data? {
                 do {
                     return try JSONEncoder().encode(self)

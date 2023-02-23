@@ -21,7 +21,7 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
     @Published private(set) var game: TicTacToeGame
     @Published var mainPlayer: LocalPlayer
     @Published var guestPlayer: Player
-    @Published var availablePeers: [MCCPeer] = []
+    @Published var availablePlayers: [MCCPeer] = []
     @Published var isMultiplayer = false {didSet{toogledMultiplayer()}}
     @Published var isShowingAlert = false
     @Published var isShowingSettings = false
@@ -34,9 +34,10 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
     var playerInTurnColor: String {game.playerInTurn.color}
     var isGameFinished: Bool {game.isGameFinished}
     var hasWinner: Bool {game.hasWinner}
-    var isConnecting: Bool {!availablePeers.filter({$0.state == .connecting}).isEmpty}
+    var isConnecting: Bool {!availablePlayers.filter({$0.state == .connecting}).isEmpty}
     var isConnected: Bool {connection?.isConnected ?? false}
-    var firstPendingInvitation: MCCPeer? {availablePeers.filter({$0.state == .waitingResponse}).sorted(by:{$0.lastStateChange < $1.lastStateChange}).first}
+    var firstPendingInvitation: MCCPeer? {availablePlayers.filter({$0.state == .waitingResponse})
+                                            .sorted(by:{$0.lastStateChange < $1.lastStateChange}).first}
     
     init() {
         let mainPlayer = LocalPlayer(id: 1)
@@ -59,10 +60,39 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
         } else {
             stopAdvertising()
             connection = nil
-            //TODO: Start automated player
-            guestPlayer = AutomatedPlayer(id: 3, name: "Easy", icon: "@", color: "ColorRed")
-            game = TicTacToeGame(player1: mainPlayer, player2: guestPlayer)
+            //TODO: REFACTOR LOCAL PLAYER SELECTION
+            populateAutomatedPlayers()
         }
+    }
+    
+    func populateAutomatedPlayers() {
+        let selectedId = Int(DataHandler.retrieve(forKey:"LocalPlayerSelectedId") ?? "1")
+        
+        availablePlayers.append(MCCPeer(id: 1, name: "Easy", state: selectedId == 1 ? .connected : .idle))
+        availablePlayers.append(MCCPeer(id: 2, name: "Medium", state: selectedId == 2 ? .connected : .idle))
+        availablePlayers.append(MCCPeer(id: 3, name: "Hard", state: selectedId == 3 ? .connected : .idle))
+        
+        automatedPlayerSelected(availablePlayers.first(where:{$0.id == selectedId})!)
+    }
+    
+    func automatedPlayerSelected(_ peer: MCCPeer) {
+        DataHandler.store(data: String(peer.id), forKey:"LocalPlayerSelectedId")
+        
+        for p in availablePlayers {
+            availablePlayers.updateState(p == peer ? .connected : .idle, forPeer: p)
+        }
+        
+        switch peer.id {
+        case 1:
+            guestPlayer = MiniMaxPlayer(id: 3, name: "Easy", icon: "O", color: "ColorYellow", depth: 1)
+        case 2:
+            guestPlayer = MiniMaxPlayer(id: 3, name: "Medium", icon: "O", color: "ColorOrange", depth: 3)
+        case 3:
+            guestPlayer = MiniMaxPlayer(id: 3, name: "Hard", icon: "O", color: "ColorRed", depth: 10)
+        default:
+            print("Player selected not available")
+        }
+        game = TicTacToeGame(player1: mainPlayer, player2: guestPlayer)
     }
     
     func restart() {
@@ -71,7 +101,7 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
         if let connection = connection, connection.isConnected  {
             connection.send(.restart, withData: nil)
         } else if !isMultiplayer && game.playerInTurn == guestPlayer {
-            (guestPlayer as! AutomatedPlayer).play(board: game.board, choose: automatedMove(position:))
+            guestPlayer.play(game: game, choose: automatedMove(position:))
         }
     }
     
@@ -84,8 +114,7 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
                     connection!.send(.move, withData: position.encode())
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                        (self.guestPlayer as! AutomatedPlayer).play(board: self.game.board,
-                                                                    choose: self.automatedMove(position:))
+                        self.guestPlayer.play(game: self.game, choose: self.automatedMove(position:))
                     }
                 }
             }
@@ -105,13 +134,13 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
     }
     
     private func startAdvertising() {
-        availablePeers = []
+        availablePlayers = []
         connection?.startAdvertising()
     }
     
     private func stopAdvertising() {
         connection?.stopAdvertising()
-        availablePeers = []
+        availablePlayers = []
     }
     
     func peerTouched(_ peer: MCCPeer) -> Bool {
@@ -126,7 +155,7 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
     }
     
     private func invitePeer(_ peer: MCCPeer) {
-        availablePeers.updateState(.connecting, forPeer: peer)
+        availablePlayers.updateState(.connecting, forPeer: peer)
         connection?.invitePeer(peer)
         startRemoteGame = newGameAsPlayer1(player2:)
     }
@@ -137,14 +166,14 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
     
     func respondInvitation(_ response: Bool, forPeer peer: MCCPeer) {
         if response {
-            let pendingPeers = availablePeers.filter{$0.state == .waitingResponse}
+            let pendingPeers = availablePlayers.filter{$0.state == .waitingResponse}
             for pendingPeer in pendingPeers {
-                availablePeers.updateState(peer == pendingPeer ? .connecting : .idle, forPeer: pendingPeer)
+                availablePlayers.updateState(peer == pendingPeer ? .connecting : .idle, forPeer: pendingPeer)
                 connection?.respondInvitationFor(pendingPeer, withValue: peer == pendingPeer)
                 startRemoteGame = newGameAsPlayer2(player1:)
             }
         } else {
-            availablePeers.updateState(.idle, forPeer: peer)
+            availablePlayers.updateState(.idle, forPeer: peer)
             connection?.respondInvitationFor(peer, withValue: response)
             
             if firstPendingInvitation != nil {
@@ -166,21 +195,21 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
     //MARK: - MCConnectorDelegate
     
     func didFoundPeer(_ peer: MCCPeer) {
-        availablePeers.append(peer)
+        availablePlayers.append(peer)
     }
     
     func didLostPeer(_ peer: MCCPeer) {
-        availablePeers.removeAll{$0==peer}
+        availablePlayers.removeAll{$0==peer}
     }
     
     func didRecieveInvitationFrom(_ peer: MCCPeer) {
-        availablePeers.updateState(.waitingResponse, forPeer: peer)
+        availablePlayers.updateState(.waitingResponse, forPeer: peer)
         showAlert(invitationRecievedAlert)
     }
     
     func didConnectTo(_ peer: MCCPeer) {
         game.restart()
-        availablePeers.updateState(.connected, forPeer: peer)
+        availablePlayers.updateState(.connected, forPeer: peer)
         connection?.send(.player, withData: mainPlayer.cloneChangingId(id:2).encode())
         isShowingSettings = false
     }
@@ -193,7 +222,7 @@ class GameViewModel: ObservableObject, MCConnectorDelegate {
     }
     
     func didRecieveDeclineFrom(_ peer: MCCPeer) {
-        availablePeers.updateState(.idle, forPeer: peer)
+        availablePlayers.updateState(.idle, forPeer: peer)
         self.showAlert(invitationDeclinedAlert)
     }
     

@@ -36,10 +36,10 @@ struct SettingsView: View {
                 }
                 
                 Section(header: Text("Remote Players")) {
-                    if model.availablePeers.isEmpty && model.isMultiplayer {
+                    if model.availablePlayers.isEmpty && model.isMultiplayer {
                         PeerView(name:"Searching for remore players...", state:.connecting)
                     } else {
-                        ForEach(model.availablePeers) { peer in
+                        ForEach(model.availablePlayers) { peer in
                             PeerView(name:peer.name, state:peer.state)
                                 .onTapGesture {
                                     if !model.peerTouched(peer) {
@@ -50,10 +50,13 @@ struct SettingsView: View {
                     }
                 }
             } else {
-                Section(header: Text("Local Players")) {
-                    PeerView(name:"Easy", state:.connected)
-                    PeerView(name:"Medium", state:.idle)
-                    PeerView(name:"Hard", state:.idle)
+                Section(header: Text("Automated Players")) {
+                    ForEach(model.availablePlayers) { peer in
+                        PeerView(name:peer.name, state:peer.state)
+                            .onTapGesture {
+                                model.automatedPlayerSelected(peer)
+                            }
+                    }
                 }
             }
         }
