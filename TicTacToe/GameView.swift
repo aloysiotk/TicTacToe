@@ -21,28 +21,10 @@ struct GameView: View {
                     Spacer()
                     ZStack {
                         GameBoardGrid(columns: model.columns, itens: model.boardItens){ item in
-                            BoardItemView(icon: item.owner?.icon, color: item.owner?.color)
-                                .onTapGesture {
-                                    withAnimation(.linear) {
-                                        if !model.choose(position: item.position) {
-                                            UINotificationFeedbackGenerator().notificationOccurred(.error)
-                                        }
-                                    }
-                                }
+                            BoardItemView(icon: item.owner?.icon, color: item.owner?.color, position:item.position, model: model)
                         }
                         if model.isGameFinished {
-                            Color("MainBackground")
-                                .opacity(0.7)
-                            if model.hasWinner {
-                                Text("\(model.playerInTurnName) Won the game!")
-                                    .foregroundColor(Color(model.playerInTurnColor))
-                                    .onAppear() {
-                                        SoundPlayer.playSound(forKey: "Applause", andExtension: "mp3")
-                                    }
-                            } else {
-                                Text("Game is draw...")
-                                    .foregroundColor(.gray)
-                            }
+                            GameFinshedView(model: model)
                         }
                     }
                     .aspectRatio(1, contentMode: .fit)
@@ -90,13 +72,37 @@ struct GameView: View {
         }
     }
     
+    struct GameFinshedView: View {
+        var model: GameViewModel
+        
+        var body: some View {
+            Color("MainBackground")
+                .opacity(0.7)
+            if model.hasWinner {
+                Text("\(model.playerInTurnName) Won the game!")
+                    .foregroundColor(Color(model.playerInTurnColor))
+                    .onAppear() {
+                        SoundPlayer.playSound(forKey: "Applause", andExtension: "mp3")
+                    }
+            } else {
+                Text("Game is draw...")
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+    
     struct BoardItemView: View {
         var icon: String
         var color: String
+        var position: GameViewModel.BoardPosition
+        var model: GameViewModel
         
-        init(icon: String?, color: String?) {
+        
+        init(icon: String?, color: String?, position: GameViewModel.BoardPosition, model: GameViewModel) {
             self.icon = icon ?? ""
             self.color = color ?? "ColorRed"
+            self.position = position
+            self.model = model
         }
         
         var body: some View {
@@ -108,6 +114,13 @@ struct GameView: View {
                         .font(Font.custom("Chalkduster", size: geometry.size.height * 0.7))
                         .foregroundColor(Color(color))
                         .frame(alignment: .center)
+                }
+                .onTapGesture {
+                    withAnimation(.linear) {
+                        if !model.choose(position: position) {
+                            UINotificationFeedbackGenerator().notificationOccurred(.error)
+                        }
+                    }
                 }
             }
         }
