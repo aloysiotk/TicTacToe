@@ -13,7 +13,7 @@ class ViewModel: ObservableObject, MCConnectorDelegate {
     private var connection: TTTConnector?
     private var startRemoteGame: ((Player) -> TicTacToeGame)?
     
-    let automatedPlayers = [MiniMaxPlayer(id: 10, name: "Easy", icon: "O", color: .yellow, depth: 4),
+    private let automatedPlayers = [MiniMaxPlayer(id: 10, name: "Easy", icon: "O", color: .yellow, depth: 4),
                             MiniMaxPlayer(id: 11, name: "Medium", icon: "O", color: .orange, depth: 6),
                             MiniMaxPlayer(id: 12, name: "Hard", icon: "O", color: .red, depth: 10)]
     
