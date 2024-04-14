@@ -1,5 +1,5 @@
 //
-//  MCConnector.swift
+//  TTTConnector.swift
 //  TicTacToe
 //
 //  Created by Aloysio Tiscoski on 2/2/23.
@@ -8,16 +8,14 @@
 import Foundation
 import MultipeerConnectivity
 
-class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdvertiserDelegate, MCSessionDelegate {
-    typealias BoardPosition = GameViewModel.BoardPosition
-    
+class TTTConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdvertiserDelegate, MCSessionDelegate {
     private let serviceType = "atk-ttt-srvc"
     private var peerID: MCPeerID
     private var session: MCSession?
     private var advertiser: MCNearbyServiceAdvertiser
     private var browser: MCNearbyServiceBrowser
     private var availablePeers: [MCPeerID] = []
-    private var pendingInvitation: [(peer:MCPeerID, invitationHandler:(Bool, MCSession?) -> Void)] = []
+    private var pendingInvitations: [Invitation] = []
     private var delegate : MCConnectorDelegate
     private var connectedPeer: MCPeerID?
     
@@ -46,37 +44,37 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
         availablePeers.removeAll()
     }
     
-    func invitePeer(_ peer: MCCPeer) {
-        session = MCSession.init(peer: peerID, securityIdentity: nil, encryptionPreference: .required)
-        session?.delegate = self
+    func invitePeer(_ peer: TTTPeer) {
+        guard let invitePeer = availablePeers.first(where:{$0.hash==peer.id}) else {return}
         
-        if let invtPeer = availablePeers.first(where:{$0.hash==peer.id}) {
-            browser.invitePeer(invtPeer, to: session!, withContext: nil, timeout: 30)
-        }
+        let session = MCSession.init(peer: peerID, securityIdentity: nil, encryptionPreference: .required)
+        session.delegate = self
+        self.session = session
+        
+        browser.invitePeer(invitePeer, to: session, withContext: nil, timeout: 30)
     }
     
-    func respondInvitationFor(_ peer:MCCPeer, withValue value: Bool) {
+    func respondInvitationFor(_ peer:TTTPeer, withValue value: Bool) {
+        guard let pendingInvitation = pendingInvitations.removePeer(peer) else {return}
+        
         if value {
             session = MCSession.init(peer: peerID, securityIdentity: nil, encryptionPreference: .required)
             session?.delegate = self
         }
         
-        if let index = pendingInvitation.firstIndex(where:{$0.peer.hash==peer.id}) {
-            let invitation = pendingInvitation.remove(at:index)
-            
-            invitation.invitationHandler(value, value ? session : nil)
-        }
+        pendingInvitation.invitationHandler(value, value ? session : nil)
     }
     
     func disconnect() {
         session?.delegate = nil
         session?.disconnect()
-        self.session = nil
+        session = nil
+        
         if let peer = connectedPeer {
-            self.delegate.didDisconnectFrom(MCCPeer(id: peer.hash, name: peer.displayName),
-                                            showAlert: false)
+            delegate.didDisconnectFrom(TTTPeer(id: peer.hash, name: peer.displayName), showAlert: false)
         }
-        self.connectedPeer = nil
+        
+        connectedPeer = nil
     }
     
     func send(_ key: ConnData.ConnDataKey, withData data: Data?) {
@@ -94,13 +92,13 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     //MARK: -MCNearbyServiceAdvertiserDelegate
     
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        if session == nil {
-            DispatchQueue.main.async {
-                self.delegate.didRecieveInvitationFrom(MCCPeer(id: peerID.hash, name: peerID.displayName))
-            }
-            pendingInvitation.append((peerID, invitationHandler))
-        } else {
+        if isConnected {
             invitationHandler(false, nil)
+        } else {
+            DispatchQueue.main.async {
+                self.delegate.didReceiveInvitationFrom(TTTPeer(id: peerID.hash, name: peerID.displayName))
+            }
+            pendingInvitations.append(Invitation(peer: peerID, invitationHandler: invitationHandler))
         }
     }
     
@@ -109,14 +107,14 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
         availablePeers.append(peerID)
         DispatchQueue.main.async {
-            self.delegate.didFoundPeer(MCCPeer(id: peerID.hash, name: peerID.displayName))
+            self.delegate.didFoundPeer(TTTPeer(id: peerID.hash, name: peerID.displayName))
         }
     }
     
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
         availablePeers.removeAll{$0==peerID}
         DispatchQueue.main.async {
-            self.delegate.didLostPeer(MCCPeer(id: peerID.hash, name: peerID.displayName))
+            self.delegate.didLostPeer(TTTPeer(id: peerID.hash, name: peerID.displayName))
         }
     }
     
@@ -124,19 +122,21 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         DispatchQueue.main.async {
+            let peer =  TTTPeer(id: peerID.hash, name: peerID.displayName)
+            
             switch state {
             case .notConnected:
                 self.session = nil
                 if self.connectedPeer != nil {
-                        self.delegate.didDisconnectFrom(MCCPeer(id: peerID.hash, name: peerID.displayName),
-                                                        showAlert: true)
+                    self.delegate.didDisconnectFrom(peer, showAlert: true)
+                    self.connectedPeer = nil
                 } else {
-                    self.delegate.didRecieveDeclineFrom(MCCPeer(id: peerID.hash, name: peerID.displayName))
+                    self.delegate.didReceiveDeclineFrom(peer)
                 }
             case .connected:
                 self.stopAdvertising()
                 self.connectedPeer = peerID
-                self.delegate.didConnectTo(MCCPeer(id: peerID.hash, name: peerID.displayName))
+                self.delegate.didConnectTo(peer)
             case .connecting:
                 print("Connecting state")
             default:
@@ -151,16 +151,17 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
                 let connData = try ConnData(fromData: data)
                 switch connData.key {
                 case .player:
-                    self.delegate.didRecievePlayer(try Player(fromData: connData.data!))
+                    self.delegate.didReceivePlayer(try Player(fromData: connData.data!))
                 case .move:
-                    self.delegate.didRecieveMove(try BoardPosition(fromData: connData.data!))
+                    self.delegate.didReceiveMove(try BoardPosition(fromData: connData.data!))
                 case .restart:
                     self.delegate.didReceiveRestart()
                 case .message:
-                    print("Message received: \(try String(fromData: connData.data!))")
+                    let peer =  TTTPeer(id: peerID.hash, name: peerID.displayName)
+                    self.delegate.didReceiveMessage(try String(fromData: connData.data!),  from: peer)
                 }
             } catch {
-                print("Error receiving message...")
+                print("Error reading data...")
             }
         }
     }
@@ -170,81 +171,40 @@ class MCConnector: NSObject, MCNearbyServiceBrowserDelegate, MCNearbyServiceAdve
     }
     
     func session(_ session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, with progress: Progress) {
-        print("Session didStartReceivingResourceWithName stream not handled")
+        print("Session didStartReceivingResourceWithName not handled")
     }
     
     func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {
         print("Session didFinishReceivingResourceWithName not handled")
     }
     
-    //MARK: -CommData
-    
-    struct ConnData:Codable {
-        var key: ConnDataKey
-        var data: Data?
-        
-        init(key: ConnDataKey, data: Data?) {
-            self.key = key
-            self.data = data
-        }
-        
-        init(fromData data: Data) throws {
-            self = try JSONDecoder().decode(ConnData.self, from: data)
-        }
-        
-        func encode() throws -> Data {
-            return try JSONEncoder().encode(self)
-        }
-        
-        enum ConnDataKey:Codable {
-            case player
-            case move
-            case restart
-            case message
-        }
+    struct Invitation {
+        var peer: MCPeerID
+        var invitationHandler: (Bool, MCSession?) -> Void
     }
     
-    //MARK: -MCCPeer
-    
-    struct MCCPeer: Equatable, Identifiable {
-        let id : Int
-        let name : String
-        var state: MCCPeerState = .idle {didSet {lastStateChange = Date()}}
-        private(set) var lastStateChange = Date()
-        
-        enum MCCPeerState {
-            case idle
-            case waitingResponse
-            case connecting
-            case connected
-        }
-        
-        static func == (lhs: MCCPeer, rhs: MCCPeer) -> Bool {
-            return lhs.id == rhs.id
-        }
-    }
 }
 
 //MARK: -MCConnectorDelegate
 
 protocol MCConnectorDelegate {
-    typealias BoardPosition = MCConnector.BoardPosition
+    func didFoundPeer(_ peer: TTTPeer)
     
-    func didFoundPeer(_ peer: MCConnector.MCCPeer)
+    func didLostPeer(_ peer: TTTPeer)
     
-    func didLostPeer(_ peer: MCConnector.MCCPeer)
+    func didReceiveInvitationFrom(_ peer: TTTPeer)
     
-    func didRecieveInvitationFrom(_ peer: MCConnector.MCCPeer)
+    func didReceiveDeclineFrom(_ peer: TTTPeer)
     
-    func didRecieveDeclineFrom(_ peer: MCConnector.MCCPeer)
+    func didConnectTo(_ peer: TTTPeer)
     
-    func didConnectTo(_ peer: MCConnector.MCCPeer)
+    func didDisconnectFrom(_ peer: TTTPeer, showAlert: Bool)
     
-    func didDisconnectFrom(_ peer: MCConnector.MCCPeer, showAlert: Bool)
+    func didReceivePlayer(_ player: Player)
     
-    func didRecievePlayer(_ player: Player)
-    
-    func didRecieveMove(_ position: BoardPosition)
+    func didReceiveMove(_ position: BoardPosition)
     
     func didReceiveRestart()
+    
+    func didReceiveMessage(_ message: String, from peer: TTTPeer)
 }

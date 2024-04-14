@@ -9,13 +9,16 @@ import SwiftUI
 
 @main
 struct TicTacToeApp: App {
+    @StateObject var alertHandler = AlertHandler()
+    
     var body: some Scene {
-        let game = GameViewModel()
+        let game = ViewModel(alertHandler: alertHandler)
         
         WindowGroup {
-            NavigationView {
+            NavigationStack {
                 GameView(model:game)
             }
+            .environmentObject(alertHandler)
         }
     }
 }

@@ -16,7 +16,7 @@ struct GameBoardGrid<Item, ItemView>: View where ItemView: View, Item: Identifia
         GeometryReader { geometry in
             let minDimension = CGFloat(min(geometry.size.width, geometry.size.height))
             let columnWidth = (minDimension * CGFloat(columns-1)) / CGFloat(columns)
-            let gridItens = Array(repeating:GridItem(.adaptive(minimum: columnWidth)), count: columns)
+            let gridItens = Array(repeating: GridItem(.adaptive(minimum: columnWidth)), count: columns)
             
             LazyVGrid(columns: gridItens) {
                 ForEach(itens) { item in
@@ -24,7 +24,10 @@ struct GameBoardGrid<Item, ItemView>: View where ItemView: View, Item: Identifia
                         .aspectRatio(1, contentMode: .fill)
                 }
             }
-            .background(Image("Board").resizable())
+            .background {
+                Image("Board")
+                    .resizable()
+            }
         }
     }
 }

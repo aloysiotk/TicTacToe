@@ -2,24 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Chalkduster.ttf</string>
-	</array>
-	<key>UIApplicationSceneManifest</key>
-	<dict>
-		<key>UIApplicationSupportsMultipleScenes</key>
-		<true/>
-		<key>UISceneConfigurations</key>
-		<dict/>
-	</dict>
-	<key>CFBundleIdentifier</key>
-	<string></string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Communicate with other devices when multiplayer is enabled</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_atk-ttt-srvc._tcp</string>
+	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Chalkduster.ttf</string>
 	</array>
 </dict>
 </plist>
