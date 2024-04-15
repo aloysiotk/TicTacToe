@@ -17,12 +17,11 @@ struct GameView: View {
         VStack {
             Spacer()
             ZStack {
-                GameBoardGrid(columns: model.columns, itens: model.boardItems){ item in
+                GameBoardGrid(columns: model.columns, items: model.boardItems){ item in
                     BoardItemView(owner: item.owner, action: {model.choose(position: item.position)})
                 }
                 gameFinishedView()
             }
-            .aspectRatio(1, contentMode: .fit)
             .padding()
             Spacer()
             Text("\(model.playerInTurnName)'s turn")
